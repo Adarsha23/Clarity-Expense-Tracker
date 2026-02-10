@@ -1,9 +1,10 @@
-import { useState, FormEvent } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/auth';
+import Button from '../components/common/Button';
 import '../styles/auth.css';
 
-export default function Signup() {
+const Signup: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -11,7 +12,7 @@ export default function Signup() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    const handleSubmit = async (e: FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -30,9 +31,8 @@ export default function Signup() {
         try {
             const data = await authService.signup(email, password);
 
-            // If email confirmation is ON, session will be null
             if (!data.session) {
-                setError('success:Sign up successful! Please check your email to verify your account before logging in.');
+                setError('success:Sign up successful! Please check your email to verify your account.');
                 return;
             }
 
@@ -40,9 +40,7 @@ export default function Signup() {
             localStorage.setItem('user', JSON.stringify(data.user));
             navigate('/dashboard');
         } catch (err: any) {
-            const errorMsg = err.response?.data?.error || err.message || 'Signup failed';
-            setError(errorMsg);
-            console.error('Signup error:', err.response?.data || err);
+            setError(err.response?.data?.error || err.message || 'Sign up failed');
         } finally {
             setLoading(false);
         }
@@ -52,45 +50,40 @@ export default function Signup() {
         <div className="auth-container">
             <div className="auth-card">
                 <div className="auth-header">
-                    <div className="logo">
-                        <h1>Clarity</h1>
-                    </div>
-                    <p className="subtitle">Create your account</p>
+                    <h1>Clarity</h1>
+                    <span className="subtitle">Join us</span>
                 </div>
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
-                        <label htmlFor="email">Email</label>
+                        <label>Email Address</label>
                         <input
-                            id="email"
                             type="email"
+                            placeholder="name@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email"
                             required
                         />
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Password</label>
+                        <label>Password</label>
                         <input
-                            id="password"
                             type="password"
+                            placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Create a password"
                             required
                         />
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="confirmPassword">Confirm Password</label>
+                        <label>Confirm Password</label>
                         <input
-                            id="confirmPassword"
                             type="password"
+                            placeholder="••••••••"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm your password"
                             required
                         />
                     </div>
@@ -101,17 +94,18 @@ export default function Signup() {
                         </div>
                     )}
 
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        {loading ? 'Creating account...' : 'Sign Up'}
-                    </button>
+                    <Button type="submit" fullWidth loading={loading}>
+                        Create Account
+                    </Button>
                 </form>
 
                 <div className="auth-footer">
-                    <p>
-                        Already have an account? <Link to="/login">Log in</Link>
-                    </p>
+                    <span>Already have an account? </span>
+                    <Link to="/login">Log In</Link>
                 </div>
             </div>
         </div>
     );
-}
+};
+
+export default Signup;
