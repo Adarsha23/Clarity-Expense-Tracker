@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import {
+    PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as ChartTooltip,
+    LineChart, Line, XAxis, YAxis, CartesianGrid
+} from 'recharts';
 import { authService } from '../services/auth';
 import { transactionService } from '../services/transactions';
 import { categoryService, Category } from '../services/categories';
@@ -191,8 +195,81 @@ export default function Dashboard() {
 
     const balance = income - expenses;
 
+    // Filter Logic
+    const filteredTransactions = transactions.filter(t => {
+        const matchesCategory = !filterCategory || t.category === filterCategory;
+        const matchesStartDate = !filterStartDate || new Date(t.date) >= new Date(filterStartDate);
+        const matchesEndDate = !filterEndDate || new Date(t.date) <= new Date(filterEndDate);
+        return matchesCategory && matchesStartDate && matchesEndDate;
+    });
+
+    const clearFilters = () => {
+        setFilterCategory('');
+        setFilterStartDate('');
+        setFilterEndDate('');
+    };
+
     // Filter categories based on current transaction type
     const filteredCats = categories.filter(c => c.type === formData.type);
+
+    // --- Analytics Data ---
+    const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+    // Category Pie Data (Expenses only)
+    const categoryData = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((acc: any[], t) => {
+            const existing = acc.find(item => item.name === t.category);
+            if (existing) {
+                existing.value += Number(t.amount);
+            } else {
+                acc.push({ name: t.category, value: Number(t.amount) });
+            }
+            return acc;
+        }, [])
+        .sort((a, b) => b.value - a.value);
+
+    // Savings Trend (Last 6 Months)
+    const trendData = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - (5 - i));
+        const month = d.getMonth();
+        const year = d.getFullYear();
+
+        const monthTransactions = transactions.filter(t => {
+            const tDate = new Date(t.date);
+            return tDate.getMonth() === month && tDate.getFullYear() === year;
+        });
+
+        const mIncome = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+        const mExpense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+        return {
+            name: d.toLocaleString('default', { month: 'short' }),
+            savings: mIncome - mExpense
+        };
+    });
+
+    // --- Smart Projection (Trailing 30-Day Burn Rate) ---
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const last30DaysExpenses = transactions
+        .filter(t => t.type === 'expense' && new Date(t.date) >= thirtyDaysAgo)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Find how many days of data we actually have in the last 30 days to avoid distortion
+    const relevantDates = transactions
+        .filter(t => new Date(t.date) >= thirtyDaysAgo)
+        .map(t => new Date(t.date).getTime());
+
+    const oldestDateInRange = relevantDates.length > 0 ? Math.min(...relevantDates) : thirtyDaysAgo.getTime();
+    const daysDiff = Math.max(1, (new Date().getTime() - oldestDateInRange) / (1000 * 60 * 60 * 24));
+
+    const dailyBurnRate = last30DaysExpenses / daysDiff;
+    const monthlyBurnRate = dailyBurnRate * 30;
+
+    const runway = monthlyBurnRate > 0 ? (balance / monthlyBurnRate).toFixed(1) : '∞';
 
     return (
         <div className="dashboard-container">
@@ -229,6 +306,76 @@ export default function Dashboard() {
                         <p className="stat-value">Rs {balance.toLocaleString()}</p>
                     </div>
                 </div>
+
+                <section className="analysis-section">
+                    <div className="analysis-grid">
+                        <div className="analysis-card chart-card">
+                            <h3>Expense Distribution</h3>
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <PieChart>
+                                        <Pie
+                                            data={categoryData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {categoryData.map((_entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <ChartTooltip
+                                            contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                        <Legend verticalAlign="bottom" height={36} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="analysis-card chart-card">
+                            <h3>Savings Trend (6M)</h3>
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <LineChart data={trendData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                                        <ChartTooltip
+                                            contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="savings"
+                                            stroke="#10b981"
+                                            strokeWidth={3}
+                                            dot={{ r: 4, fill: '#10b981' }}
+                                            activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="analysis-card projection-card">
+                            <div className="projection-content">
+                                <h3>Zero-Income Runway</h3>
+                                <div className="runway-stat">
+                                    <span className="runway-value">{runway}</span>
+                                    <span className="runway-label">Months Remaining</span>
+                                </div>
+                                <p className="projection-desc">
+                                    Based on your trailing 30-day burn rate, your current balance can cover expenses for {runway} months if all income stopped today.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
                 {!editingId && (
                     <section className="form-section">
