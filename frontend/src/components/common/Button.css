@@ -1,5 +1,4 @@
 .btn {
-    /* Reset & Base */
     appearance: none;
     -webkit-appearance: none;
     display: inline-flex;
@@ -8,7 +7,6 @@
     margin: 0;
     padding: 0;
     border: 2px solid transparent;
-    /* Thick border for "Cancel" feel */
     border-radius: 4px;
     font-weight: 700;
     font-family: inherit;
@@ -45,6 +43,7 @@
 .btn-primary {
     background: #ffffff;
     color: #000000;
+    /* Fixed: High contrast black text on white */
     border-color: #ffffff;
 }
 
@@ -56,13 +55,24 @@
 .btn-secondary {
     background: transparent;
     border-color: #333333;
-    /* The visible border */
     color: #ffffff;
 }
 
 .btn-secondary:hover:not(:disabled) {
     border-color: #ffffff;
     background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-success {
+    background: #10b981;
+    /* Premium Emerald Green */
+    color: #ffffff;
+    border-color: #10b981;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #059669;
+    border-color: #059669;
 }
 
 .btn-danger {
@@ -73,6 +83,17 @@
 
 .btn-danger:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.1);
+}
+
+.btn-ghost {
+    background: transparent;
+    border: none;
+    color: #888;
+    min-width: auto;
+    height: auto;
+    padding: 0;
+    text-transform: none;
+    font-weight: 400;
 }
 
 .btn:active:not(:disabled) {

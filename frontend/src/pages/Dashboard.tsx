@@ -1,21 +1,32 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { transactionService } from '../services/transactions';
+import { categoryService, Category } from '../services/categories';
 import { Transaction } from '../types';
 import Button from '../components/common/Button';
 import '../styles/dashboard.css';
 
 export default function Dashboard() {
+    // Basic State
     const [user, setUser] = useState<any>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
+    // Category Modal State
+    const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const [editingCatId, setEditingCatId] = useState<string | null>(null);
+    const [catName, setCatName] = useState('');
+    const [catType, setCatType] = useState<'income' | 'expense'>('expense');
+
+    // Transaction Form State
     const [formData, setFormData] = useState({
         type: 'expense' as 'income' | 'expense',
         amount: '',
-        category: 'Food',
+        category: '',
         description: '',
         date: new Date().toISOString().split('T')[0]
     });
@@ -28,6 +39,7 @@ export default function Dashboard() {
             setUser(JSON.parse(userData));
         }
         fetchTransactions();
+        fetchCategories();
     }, []);
 
     const fetchTransactions = async () => {
@@ -39,6 +51,21 @@ export default function Dashboard() {
         }
     };
 
+    const fetchCategories = async () => {
+        try {
+            const data = await categoryService.getAll();
+            setCategories(data);
+            // Set default category if not set
+            if (data.length > 0 && !formData.category) {
+                const firstExp = data.find(c => c.type === 'expense');
+                if (firstExp) setFormData(prev => ({ ...prev, category: firstExp.name }));
+            }
+        } catch (error) {
+            console.error('Failed to fetch categories:', error);
+        }
+    };
+
+    // --- Transaction Handlers ---
     const handleEditClick = (transaction: Transaction) => {
         setEditingId(transaction.id);
         setFormData({
@@ -52,10 +79,15 @@ export default function Dashboard() {
 
     const closeEdit = () => {
         setEditingId(null);
+        resetForm();
+    };
+
+    const resetForm = () => {
+        const firstExp = categories.find(c => c.type === 'expense');
         setFormData({
             type: 'expense',
             amount: '',
-            category: 'Food',
+            category: firstExp ? firstExp.name : '',
             description: '',
             date: new Date().toISOString().split('T')[0]
         });
@@ -77,10 +109,11 @@ export default function Dashboard() {
                 await transactionService.create(payload);
             }
 
-            setFormData({ ...formData, amount: '', description: '' });
+            resetForm();
             fetchTransactions();
+            toast.success(editingId ? 'Transaction updated' : 'Transaction added');
         } catch (error) {
-            alert(editingId ? 'Failed to update' : 'Failed to add');
+            toast.error(editingId ? 'Failed to update' : 'Failed to add');
         } finally {
             setLoading(false);
         }
@@ -91,11 +124,58 @@ export default function Dashboard() {
         try {
             await transactionService.delete(id);
             fetchTransactions();
+            toast.success('Transaction deleted');
         } catch (error) {
-            alert('Failed to delete');
+            toast.error('Failed to delete');
         }
     };
 
+    // --- Category Handlers ---
+    const openCatModal = () => {
+        setIsCatModalOpen(true);
+    };
+
+    const closeCatModal = () => {
+        setIsCatModalOpen(false);
+        setEditingCatId(null);
+        setCatName('');
+    };
+
+    const handleSaveCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            if (editingCatId) {
+                await categoryService.update(editingCatId, catName, catType);
+            } else {
+                await categoryService.create(catName, catType);
+            }
+            setCatName('');
+            setEditingCatId(null);
+            fetchCategories();
+            toast.success(editingCatId ? 'Category updated' : 'Category added');
+        } catch (error) {
+            toast.error('Failed to save category');
+        }
+    };
+
+    const handleEditCat = (cat: Category) => {
+        setEditingCatId(cat.id);
+        setCatName(cat.name);
+        setCatType(cat.type);
+    };
+
+    const handleDeleteCat = async (id: string) => {
+        if (!window.confirm('Delete this category? Transactions using it will be affected.')) return;
+        try {
+            await categoryService.delete(id);
+            fetchCategories();
+            toast.success('Category deleted');
+        } catch (error) {
+            toast.error('Failed to delete category');
+        }
+    };
+
+    // --- Stats ---
     const income = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -106,6 +186,9 @@ export default function Dashboard() {
 
     const balance = income - expenses;
 
+    // Filter categories based on current transaction type
+    const filteredCats = categories.filter(c => c.type === formData.type);
+
     return (
         <div className="dashboard-container">
             <aside className="sidebar">
@@ -115,9 +198,7 @@ export default function Dashboard() {
                     </div>
                 </div>
                 <nav className="sidebar-nav">
-                    <a href="#" className="nav-item active"><span>Overview</span></a>
-                    <a href="#" className="nav-item"><span>History</span></a>
-                    <a href="#" className="nav-item"><span>Insights</span></a>
+                    <button className="nav-item active"><span>Overview</span></button>
                     <button onClick={() => authService.logout().then(() => navigate('/login'))} className="nav-item">
                         <span>Logout</span>
                     </button>
@@ -132,15 +213,15 @@ export default function Dashboard() {
                 <div className="dashboard-grid">
                     <div className="stat-card income-border">
                         <h3>Total Income</h3>
-                        <p className="stat-value text-success">Rs {income.toFixed(2)}</p>
+                        <p className="stat-value text-success">Rs {income.toLocaleString()}</p>
                     </div>
                     <div className="stat-card expense-border">
                         <h3>Total Expenses</h3>
-                        <p className="stat-value text-error">Rs {expenses.toFixed(2)}</p>
+                        <p className="stat-value text-error">Rs {expenses.toLocaleString()}</p>
                     </div>
                     <div className="stat-card balance-border">
                         <h3>Balance</h3>
-                        <p className="stat-value">Rs {balance.toFixed(2)}</p>
+                        <p className="stat-value">Rs {balance.toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -150,7 +231,11 @@ export default function Dashboard() {
                         <form onSubmit={handleSubmit} className="transaction-form">
                             <select
                                 value={formData.type}
-                                onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                                onChange={e => {
+                                    const newType = e.target.value as any;
+                                    const firstCat = categories.find(c => c.type === newType);
+                                    setFormData({ ...formData, type: newType, category: firstCat ? firstCat.name : '' });
+                                }}
                             >
                                 <option value="expense">Expense</option>
                                 <option value="income">Income</option>
@@ -163,13 +248,18 @@ export default function Dashboard() {
                                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                 required
                             />
-                            <input
-                                type="text"
-                                placeholder="Category"
-                                value={formData.category}
-                                onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                required
-                            />
+                            <div className="category-select-wrapper">
+                                <select
+                                    value={formData.category}
+                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                    required
+                                >
+                                    <option value="" disabled>Select Category</option>
+                                    {filteredCats.map(c => (
+                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <input
                                 type="text"
                                 placeholder="Description"
@@ -182,8 +272,12 @@ export default function Dashboard() {
                                 onChange={e => setFormData({ ...formData, date: e.target.value })}
                                 required
                             />
-                            <Button type="submit" loading={loading}>Add</Button>
+                            <Button type="submit" variant="success" loading={loading}>Add</Button>
                         </form>
+                        <p className="category-cta">
+                            Don't have a category you're looking for?
+                            <button type="button" onClick={openCatModal} className="btn-inline-cat">Add Custom</button>
+                        </p>
                     </section>
                 )}
 
@@ -197,12 +291,14 @@ export default function Dashboard() {
                                 <div key={t.id} className="transaction-item">
                                     <div className="t-info">
                                         <span className="t-category">{t.category}</span>
-                                        <span className="t-desc">{t.description}</span>
-                                        <span className="t-date">{t.date}</span>
+                                        <div className="t-desc-wrapper">
+                                            <span className="t-desc">{t.description}</span>
+                                            <span className="t-date">{t.date}</span>
+                                        </div>
                                     </div>
                                     <div className="t-amount-actions">
-                                        <span className={t.type === 'income' ? 'text-success' : 'text-error'}>
-                                            {t.type === 'income' ? '+' : '-'}Rs {Number(t.amount).toFixed(2)}
+                                        <span className={`t-amount ${t.type === 'income' ? 'text-success' : 'text-error'}`}>
+                                            {t.type === 'income' ? '+' : '-'}Rs {Number(t.amount).toLocaleString()}
                                         </span>
                                         <div className="action-buttons">
                                             <Button variant="secondary" size="sm" onClick={() => handleEditClick(t)}>Edit</Button>
@@ -216,6 +312,7 @@ export default function Dashboard() {
                 </section>
             </main>
 
+            {/* EDIT TRANSACTION MODAL */}
             {editingId && (
                 <div className="modal-overlay" onClick={closeEdit}>
                     <div className="modal-card" onClick={e => e.stopPropagation()}>
@@ -229,7 +326,11 @@ export default function Dashboard() {
                                     <label>Type</label>
                                     <select
                                         value={formData.type}
-                                        onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                                        onChange={e => {
+                                            const newType = e.target.value as any;
+                                            const firstCat = categories.find(c => c.type === newType);
+                                            setFormData({ ...formData, type: newType, category: firstCat ? firstCat.name : '' });
+                                        }}
                                     >
                                         <option value="expense">Expense</option>
                                         <option value="income">Income</option>
@@ -247,12 +348,15 @@ export default function Dashboard() {
                                 </div>
                                 <div className="field">
                                     <label>Category</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={formData.category}
                                         onChange={e => setFormData({ ...formData, category: e.target.value })}
                                         required
-                                    />
+                                    >
+                                        {filteredCats.map(c => (
+                                            <option key={c.id} value={c.name}>{c.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="field">
                                     <label>Date</label>
@@ -273,10 +377,93 @@ export default function Dashboard() {
                                 </div>
                             </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="secondary" onClick={closeEdit}>Cancel</Button>
-                                <Button type="submit" loading={loading}>Save Changes</Button>
+                                <Button type="button" variant="danger" onClick={closeEdit}>Cancel</Button>
+                                <Button type="submit" variant="success" loading={loading}>Save Changes</Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* CATEGORY MANAGEMENT MODAL */}
+            {isCatModalOpen && (
+                <div className="modal-overlay" onClick={closeCatModal}>
+                    <div className="modal-card wide-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Manage Categories</h3>
+                            <button onClick={closeCatModal} className="btn-close">&times;</button>
+                        </div>
+
+                        <form className="category-manager-form" onSubmit={handleSaveCategory}>
+                            <div className="field">
+                                <label>Category Name</label>
+                                <input
+                                    type="text"
+                                    value={catName}
+                                    onChange={e => setCatName(e.target.value)}
+                                    placeholder="Category Name"
+                                    required
+                                />
+                            </div>
+                            <div className="field">
+                                <label>Type</label>
+                                <select
+                                    value={catType}
+                                    onChange={e => setCatType(e.target.value as 'income' | 'expense')}
+                                >
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                            </div>
+                            <Button type="submit" variant="success">{editingCatId ? 'Update' : 'Add'}</Button>
+                            {editingCatId && <Button variant="secondary" type="button" onClick={() => { setEditingCatId(null); setCatName(''); }}>Cancel</Button>}
+                        </form>
+
+                        <div className="category-list">
+                            <div className="cat-group">
+                                <div className="cat-section">
+                                    <h4 className="income-header">Income Categories</h4>
+                                    <div className="cat-grid">
+                                        {categories.filter(c => c.type === 'income').map(c => (
+                                            <div key={c.id} className="cat-item">
+                                                <div className="cat-label">
+                                                    <span className="cat-name">{c.name}</span>
+                                                    {!c.user_id && <span className="badge-default">Default</span>}
+                                                </div>
+                                                {c.user_id && (
+                                                    <div className="cat-actions">
+                                                        <button onClick={() => handleEditCat(c)} className="cat-btn-edit">Edit</button>
+                                                        <button onClick={() => handleDeleteCat(c.id)} className="cat-btn-delete">×</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="cat-divider"></div>
+
+                                <div className="cat-section">
+                                    <h4 className="expense-header">Expense Categories</h4>
+                                    <div className="cat-grid">
+                                        {categories.filter(c => c.type === 'expense').map(c => (
+                                            <div key={c.id} className="cat-item">
+                                                <div className="cat-label">
+                                                    <span className="cat-name">{c.name}</span>
+                                                    {!c.user_id && <span className="badge-default">Default</span>}
+                                                </div>
+                                                {c.user_id && (
+                                                    <div className="cat-actions">
+                                                        <button onClick={() => handleEditCat(c)} className="cat-btn-edit">Edit</button>
+                                                        <button onClick={() => handleDeleteCat(c.id)} className="cat-btn-delete">×</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
