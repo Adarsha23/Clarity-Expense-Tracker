@@ -12,10 +12,10 @@ A modern, full-stack expense tracking application built with React, TypeScript, 
 - ✅ Responsive design (mobile + desktop)
 
 ### Standout Features
-- 📸 **Receipt OCR**: Upload receipt photos to auto-fill transaction details
-- 📊 **Savings Projection**: Estimate how long your savings will last based on spending trends
-- 💡 **Counterfactual Analysis**: See what you could have bought/saved if you skipped certain purchases
-- 🎯 **Goal Velocity Tracker**: Monitor progress toward savings goals with velocity metrics
+- 📊 **Visual Analytics**: Interactive pie charts for category spending and line charts for savings trends.
+- 🔮 **Savings Projection**: AI-assisted forecasting to estimate how long your savings will last.
+- 🎯 **Goal Velocity Tracker**: Real-time monitoring of savings goal progress with velocity metrics.
+- 💡 **Counterfactual Analysis**: Analyze potential savings by simulating the removal of specific habits.
 
 ## 🛠️ Tech Stack
 
