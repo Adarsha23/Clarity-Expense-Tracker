@@ -31,6 +31,11 @@ export default function Dashboard() {
         date: new Date().toISOString().split('T')[0]
     });
 
+    // Filtering State
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -282,12 +287,49 @@ export default function Dashboard() {
                 )}
 
                 <section className="list-section">
-                    <h3>Recent Transactions</h3>
+                    <div className="list-header">
+                        <h3>Recent Transactions</h3>
+                        <div className="filter-bar">
+                            <select
+                                value={filterCategory}
+                                onChange={e => setFilterCategory(e.target.value)}
+                                className="filter-select"
+                            >
+                                <option value="">All Categories</option>
+                                {categories.map(c => (
+                                    <option key={c.id} value={c.name}>{c.name}</option>
+                                ))}
+                            </select>
+                            <div className="date-filters">
+                                <span>FROM</span>
+                                <input
+                                    type="date"
+                                    value={filterStartDate}
+                                    onChange={e => setFilterStartDate(e.target.value)}
+                                    placeholder="Start Date"
+                                />
+                                <span>TO</span>
+                                <input
+                                    type="date"
+                                    value={filterEndDate}
+                                    onChange={e => setFilterEndDate(e.target.value)}
+                                    placeholder="End Date"
+                                />
+                            </div>
+                            {(filterCategory || filterStartDate || filterEndDate) && (
+                                <button onClick={clearFilters} className="btn-clear-filters">Clear</button>
+                            )}
+                        </div>
+                    </div>
                     <div className="transaction-list">
-                        {transactions.length === 0 ? (
-                            <p className="empty-state">No transactions yet. Add your first one above!</p>
+                        {filteredTransactions.length === 0 ? (
+                            <p className="empty-state">
+                                {transactions.length === 0
+                                    ? "No transactions yet. Add your first one above!"
+                                    : "No transactions match your filters."}
+                            </p>
                         ) : (
-                            transactions.map(t => (
+                            filteredTransactions.map(t => (
                                 <div key={t.id} className="transaction-item">
                                     <div className="t-info">
                                         <span className="t-category">{t.category}</span>
