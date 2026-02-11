@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import TransactionsPage from './pages/Transactions';
 import './styles/global.css';
 
 // Protected route wrapper
@@ -13,7 +14,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -22,6 +23,14 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <Dashboard />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/transactions"
+                    element={
+                        <ProtectedRoute>
+                            <TransactionsPage />
                         </ProtectedRoute>
                     }
                 />
