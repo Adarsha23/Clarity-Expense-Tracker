@@ -1,66 +1,89 @@
 # Clarity - Personal Expense Tracker
 
-A modern, full-stack expense tracking application built with React, TypeScript, Node.js, and Supabase.
+A modern, full-stack financial management application designed to help you track expenses, visualize spending habits, and forecast savings. Built with **React**, **TypeScript**, **Node.js**, and **Supabase**.
 
-## 🚀 Features
+---
 
-### Core Features
-- ✅ User authentication (signup/login)
-- ✅ Add, edit, and delete transactions (income/expense)
-- ✅ Transaction list with filtering (category, date range)
-- ✅ Dashboard with spending analytics
-- ✅ Responsive design (mobile + desktop)
+## Key Features
+
+### Smart Dashboard
+- **Financial Overview**: Instantly view your Total Income, Total Expenses, and Net Balance.
+- **Visual Analytics**:
+  - **Spending Distribution**: Interactive Pie Chart showing exactly where your money goes.
+  - **Savings Trend**: Line chart tracking your savings growth over time.
+- **Savings Projection**: AI-driven "Runway" calculation estimating how long your savings will last based on current spending.
+
+### Transaction Management
+- **Unified UI**: Consistent, clean modal interface for adding Income and Expenses.
+- **Custom Categories**: Create, edit, and manage your own transaction categories directly from the modal.
+- **Advanced Filtering**: Filter transactions by specific **Date Ranges** or view by **Month**.
+- **Contextual Insights**: Monthly summaries showing precise savings or deficits.
+
+### Secure & Robust
+- **Authentication**: Secure Signup and Login powered by Supabase Auth.
+- **Data Privacy**: Row Level Security (RLS) ensures you only access your own data.
 
 ### Standout Features
-- 📊 **Visual Analytics**: Interactive pie charts for category spending and line charts for savings trends.
-- 🔮 **Savings Projection**: AI-assisted forecasting to estimate how long your savings will last.
-- 🎯 **Goal Velocity Tracker**: Real-time monitoring of savings goal progress with velocity metrics.
-- 💡 **Counterfactual Analysis**: Analyze potential savings by simulating the removal of specific habits.
+- **Visual Analytics**: Interactive pie charts for category spending and line charts for savings trends.
+- **Savings Projection**: AI-assisted forecasting to estimate how long your savings will last.
 
-## 🛠️ Tech Stack
+---
 
-**Frontend:**
-- React 18 with TypeScript
-- Vite (build tool)
-- React Router (routing)
-- Axios (HTTP client)
-- React Query (server state management)
+## Tech Stack
 
-**Backend:**
-- Node.js with Express
-- TypeScript
-- Supabase (PostgreSQL database + authentication)
+| Area | Technologies |
+|------|-------------|
+| **Frontend** | React 18, TypeScript, Vite, Recharts, Axios, React Router, React Hot Toast |
+| **Backend** | Node.js, Express, TypeScript |
+| **Database** | Supabase (PostgreSQL), Row Level Security (RLS) |
+| **Styling** | Vanilla CSS (Modern Variables & Responsive Design) |
 
-**Deployment:**
-- Frontend: Vercel
-- Backend: Integrated with Supabase
-- Database: Supabase (PostgreSQL)
+---
 
-## 📋 Prerequisites
+## Prerequisites
 
-- Node.js 18+ and npm
-- Supabase account ([supabase.com](https://supabase.com))
-- Git
+Before running the project, ensure you have:
+- **Node.js** (v18 or higher)
+- **npm** (Node Package Manager)
+- A **Supabase** account (Free tier is sufficient)
+- **Git**
 
-## 🔧 Setup Instructions
+---
+
+## Installation & Setup Guide
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/Adarsha23/Clarity-Expense-Tracker.git
 cd Clarity-Expense-Tracker
 ```
 
-### 2. Set Up Supabase
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to **SQL Editor** and run the following schema:
+### 2. Set Up Supabase (Database)
+1. Log in to [supabase.com](https://supabase.com) and create a new project.
+2. Go to the **SQL Editor** in your Supabase dashboard.
+3. Paste and run the following SQL script to set up your tables and security policies:
 
 ```sql
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Transactions table
+-- 1. Create Profiles Table (Optional, for future extensibility)
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  email TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 2. Create Categories Table
+CREATE TABLE categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- NULL for default categories
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Create Transactions Table
 CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -73,218 +96,116 @@ CREATE TABLE transactions (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX idx_transactions_date ON transactions(date DESC);
-
--- Row Level Security
+-- 4. Enable Row Level Security (RLS)
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own transactions"
-  ON transactions FOR SELECT
-  USING (auth.uid() = user_id);
+-- 5. Create Policies for Transactions (User can only see their own)
+CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own transactions" ON transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own transactions" ON transactions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own transactions" ON transactions FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own transactions"
-  ON transactions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+-- 6. Create Policies for Categories (User sees defaults + their own)
+CREATE POLICY "Users can view default and own categories" ON categories FOR SELECT USING (user_id IS NULL OR auth.uid() = user_id);
+CREATE POLICY "Users can insert own categories" ON categories FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own categories" ON categories FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own categories" ON categories FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own transactions"
-  ON transactions FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own transactions"
-  ON transactions FOR DELETE
-  USING (auth.uid() = user_id);
+-- 7. Insert Default Categories
+INSERT INTO categories (name, type, user_id) VALUES
+('Salary', 'income', NULL), ('Freelance', 'income', NULL), ('Investment', 'income', NULL),
+('Food', 'expense', NULL), ('Rent', 'expense', NULL), ('Utilities', 'expense', NULL),
+('Transportation', 'expense', NULL), ('Entertainment', 'expense', NULL), ('Health', 'expense', NULL);
 ```
-
-3. Copy your **Project URL** and **anon public key** from **Settings > API**
 
 ### 3. Configure Environment Variables
 
-**Backend:**
-```bash
-cd backend
-cp .env.example .env
-```
+#### Backend Setup
+1. Navigate to the backend folder:
+   ```bash
+   cd backend
+   ```
+2. Create a `.env` file:
+   ```bash
+   touch .env
+   ```
+3. Add the following keys (get these from Supabase Settings > API):
+   ```env
+   SUPABASE_URL=your_project_url_here
+   SUPABASE_ANON_KEY=your_anon_public_key_here
+   PORT=3001
+   NODE_ENV=development
+   ```
 
-Edit `backend/.env`:
-```
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-PORT=3001
-```
-
-**Frontend:**
-```bash
-cd ../frontend
-cp .env.example .env
-```
-
-Edit `frontend/.env`:
-```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_API_URL=http://localhost:3001
-```
+#### Frontend Setup
+1. Navigate to the frontend folder:
+   ```bash
+   cd ../frontend
+   ```
+2. Create a `.env` file:
+   ```bash
+   touch .env
+   ```
+3. Add the following keys:
+   ```env
+   VITE_SUPABASE_URL=your_project_url_here
+   VITE_SUPABASE_ANON_KEY=your_anon_public_key_here
+   VITE_API_URL=http://localhost:3001
+   ```
 
 ### 4. Install Dependencies
+Install packages for both frontend and backend:
 
-**Backend:**
 ```bash
-cd backend
+# In /backend
+npm install
+
+# In /frontend
 npm install
 ```
 
-**Frontend:**
-```bash
-cd ../frontend
-npm install
-```
+---
 
-### 5. Run the Application
+## Running the Application
 
-**Start Backend (Terminal 1):**
+You will need to run the **Backend** and **Frontend** in separate terminal windows.
+
+**Terminal 1: Start Backend**
 ```bash
 cd backend
 npm run dev
 ```
-Backend will run on `http://localhost:3001`
+*Server runs on: http://localhost:3001*
 
-**Start Frontend (Terminal 2):**
+**Terminal 2: Start Frontend**
 ```bash
 cd frontend
 npm run dev
 ```
-Frontend will run on `http://localhost:5173`
+*App runs on: http://localhost:5173*
 
-### 6. Access the App
+Open **http://localhost:5173** in your browser to start using Clarity!
 
-Open your browser to [http://localhost:5173](http://localhost:5173)
+---
 
-## 📁 Project Structure
+## API Endpoints
 
-```
-clarity-expense-tracker/
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API communication
-│   │   ├── types/         # TypeScript types
-│   │   └── utils/         # Helper functions
-│   └── package.json
-│
-├── backend/               # Node.js backend
-│   ├── src/
-│   │   ├── routes/       # API endpoints
-│   │   ├── middleware/   # Auth, validation
-│   │   ├── services/     # Business logic
-│   │   ├── config/       # Configuration
-│   │   └── server.ts     # Express server
-│   └── package.json
-│
-└── README.md
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **POST** | `/api/auth/signup` | Register a new user |
+| **POST** | `/api/auth/login` | Login user & get JWT |
+| **GET** | `/api/transactions` | Fetch all user transactions |
+| **POST** | `/api/transactions` | Create a transaction |
+| **GET** | `/api/categories` | Fetch categories (default + custom) |
+| **POST** | `/api/categories` | Create a custom category |
 
-## 🔐 Authentication Flow
+---
 
-1. User signs up with email/password
-2. Supabase creates user account and returns JWT token
-3. Frontend stores token in localStorage
-4. All API requests include token in `Authorization` header
-5. Backend middleware verifies token with Supabase
-6. Database RLS policies ensure users only access their own data
+## Author
+**Adarsha Prasai**
+Built for Software Engineer Intern Accessment.
 
-## 🧪 Testing
-
-**Backend API:**
-```bash
-# Test signup
-curl -X POST http://localhost:3001/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-
-# Test login
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-```
-
-## 📚 API Documentation
-
-### Authentication
-
-**POST** `/api/auth/signup`
-- Body: `{ email: string, password: string }`
-- Returns: `{ user, session }`
-
-**POST** `/api/auth/login`
-- Body: `{ email: string, password: string }`
-- Returns: `{ user, session }`
-
-**POST** `/api/auth/logout`
-- Headers: `Authorization: Bearer <token>`
-- Returns: `{ message: "Logged out" }`
-
-### Transactions
-
-**GET** `/api/transactions`
-- Headers: `Authorization: Bearer <token>`
-- Query: `?category=Food&startDate=2026-01-01&endDate=2026-01-31`
-- Returns: `{ transactions: [...] }`
-
-**POST** `/api/transactions`
-- Headers: `Authorization: Bearer <token>`
-- Body: `{ type, amount, category, description, date }`
-- Returns: `{ transaction }`
-
-**PUT** `/api/transactions/:id`
-- Headers: `Authorization: Bearer <token>`
-- Body: `{ amount?, category?, description?, date? }`
-- Returns: `{ transaction }`
-
-**DELETE** `/api/transactions/:id`
-- Headers: `Authorization: Bearer <token>`
-- Returns: `{ message: "Deleted" }`
-
-### Dashboard
-
-**GET** `/api/dashboard`
-- Headers: `Authorization: Bearer <token>`
-- Query: `?startDate=2026-02-01&endDate=2026-02-28`
-- Returns: `{ totalIncome, totalExpenses, balance, categoryBreakdown }`
-
-## 🎨 Design Decisions
-
-**Why TypeScript?**
-- Type safety prevents runtime errors
-- Better IDE autocomplete and refactoring
-- Shared types between frontend and backend
-
-**Why Supabase?**
-- Production-ready authentication out of the box
-- PostgreSQL with built-in Row Level Security
-- Real-time capabilities (future enhancement)
-- Generous free tier
-
-**Why separate backend?**
-- Business logic separation from UI
-- Easier to add server-side features (OCR processing, analytics)
-- Can scale independently from frontend
-
-## 🚧 Future Enhancements
-
-- Email verification and password reset
-- Export transactions to CSV
-- Recurring transactions
-- Budget limits with notifications
-- Multi-currency support
-- Dark mode
-
-## 👨‍💻 Author
-
-Built by Adarsha Prasai for Software Engineer Intern assessment
-
-## 📄 License
-
+## License
 MIT
+
