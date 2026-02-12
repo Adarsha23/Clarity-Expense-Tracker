@@ -3,19 +3,26 @@ import { toast } from 'react-hot-toast';
 import { transactionService } from '../services/transactions';
 import { categoryService, Category } from '../services/categories';
 import { Transaction } from '../types';
+import Button from '../components/common/Button';
 import Sidebar from '../components/layout/Sidebar';
 import '../styles/dashboard.css';
 
+// Transactions Page Component
+// Displays a list of transactions with filtering controls (Category, Date Range) and a month view.
 export default function TransactionsPage() {
+    // --- STATE MANAGEMENT ---
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+
+    // Filters
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
 
-    // Month Selection
+    // Month View State (defaults to current month)
     const [viewDate, setViewDate] = useState(new Date());
 
+    // Modal & Form State
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -25,6 +32,12 @@ export default function TransactionsPage() {
         description: '',
         date: new Date().toISOString().split('T')[0]
     });
+
+    // Category Modal State
+    const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const [editingCatId, setEditingCatId] = useState<string | null>(null);
+    const [catName, setCatName] = useState('');
+    const [catType, setCatType] = useState<'income' | 'expense'>('expense');
 
     useEffect(() => {
         fetchTransactions();
@@ -94,16 +107,21 @@ export default function TransactionsPage() {
         setViewDate(newDate);
     };
 
-    // Filter Logic
+    // --- FILTERING LOGIC ---
+    // Filters transactions based on:
+    // 1. Category (optional)
+    // 2. Date: Either a specific Month (default) OR a custom Date Range (if set)
     const filteredTransactions = transactions
         .filter(t => {
             const tDate = new Date(t.date);
-            // Fix: Ensure we are comparing correctly regardless of time zones
+
+            // Check if transaction belongs to the currently selected month
             const isSameMonth = tDate.getMonth() === viewDate.getMonth() && tDate.getFullYear() === viewDate.getFullYear();
 
+            // Check Category Match
             const matchesCategory = !filterCategory || t.category === filterCategory;
 
-            // Fix: Parse filter dates correctly
+            // Check Custom Date Range
             let matchesStartDate = true;
             if (filterStartDate) {
                 const startDate = new Date(filterStartDate);
@@ -116,9 +134,9 @@ export default function TransactionsPage() {
                 matchesEndDate = tDate <= endDate;
             }
 
-            // Priorities: 
-            // 1. If Date Range (From/To) is set, use that AND ignore month view
-            // 2. If no Date Range, use Month View
+            // PRIORITIZATION LOGIC:
+            // 1. If a Date Range (From/To) is provided, it overrides the Month View.
+            // 2. Otherwise, we stick to the selected Month View.
             const hasDateRange = filterStartDate || filterEndDate;
 
             if (hasDateRange) {
@@ -127,11 +145,11 @@ export default function TransactionsPage() {
                 return isSameMonth && matchesCategory;
             }
         })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Most recent first
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort: Most recent first
 
     const monthName = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    // Calculate totals based on the filtered view
+    // Calculate totals dynamically based on the current filtered view
     const statsTotalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
     const statsTotalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
     const monthTotal = statsTotalIncome - statsTotalExpense;
@@ -263,14 +281,73 @@ export default function TransactionsPage() {
                                 </div>
                             </div>
                             <div className="modal-actions">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <button type="button" onClick={() => { setIsCatModalOpen(true); }} className="btn-inline-cat">Add Custom Category</button>
+                                </div>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
                                     <button type="button" onClick={() => setIsFormOpen(false)} className="btn-inline-cat" style={{ textDecoration: 'none', color: '#666', border: 'none', background: 'none' }}>CANCEL</button>
-                                    <button type="submit" className="btn btn-success" disabled={loading}>
-                                        {loading ? 'SAVING...' : 'SAVE'}
-                                    </button>
+                                    <Button type="submit" variant="success" loading={loading}>SAVE</Button>
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* CATEGORY MANAGEMENT MODAL */}
+            {isCatModalOpen && (
+                <div className="modal-overlay" onClick={() => setIsCatModalOpen(false)}>
+                    <div className="modal-card wide-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Manage Categories</h3>
+                            <button onClick={() => setIsCatModalOpen(false)} className="btn-close">&times;</button>
+                        </div>
+                        <form className="category-manager-form" onSubmit={async (e) => {
+                            e.preventDefault();
+                            try {
+                                if (editingCatId) await categoryService.update(editingCatId, catName, catType);
+                                else await categoryService.create(catName, catType);
+                                setCatName('');
+                                setEditingCatId(null);
+                                fetchCategories();
+                                toast.success('Category saved');
+                            } catch (error) { toast.error('Failed'); }
+                        }}>
+                            <div className="field">
+                                <label>Category Name</label>
+                                <input type="text" value={catName} onChange={e => setCatName(e.target.value)} required />
+                            </div>
+                            <div className="field">
+                                <label>Type</label>
+                                <select value={catType} onChange={e => setCatType(e.target.value as any)}>
+                                    <option value="expense">Expense</option>
+                                    <option value="income">Income</option>
+                                </select>
+                            </div>
+                            <Button type="submit" variant="success">{editingCatId ? 'Update' : 'Add'}</Button>
+                        </form>
+                        <div className="category-list">
+                            <div className="cat-group">
+                                {['income', 'expense'].map(type => (
+                                    <div key={type} className="cat-section">
+                                        <h4 className={type === 'income' ? 'income-header' : 'expense-header'}>{type} Categories</h4>
+                                        <div className="cat-grid">
+                                            {categories.filter(c => c.type === type).map(c => (
+                                                <div key={c.id} className="cat-item">
+                                                    <span>{c.name} {!c.user_id && <span className="badge-default">Default</span>}</span>
+                                                    {c.user_id && (
+                                                        <div className="cat-actions">
+                                                            <button onClick={() => { setEditingCatId(c.id); setCatName(c.name); setCatType(c.type); }} className="cat-btn-edit">Edit</button>
+                                                            <button onClick={async () => { if (window.confirm('Delete?')) { await categoryService.delete(c.id); fetchCategories(); } }} className="cat-btn-delete">×</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
