@@ -17,7 +17,14 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Call Supabase API to sign up
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            // Explicitly set the redirect URL to avoid localhost:3000 default
+            emailRedirectTo: process.env.FRONTEND_URL || 'http://localhost:5173'
+        }
+    });
 
     if (error) {
         res.status(400).json({ error: error.message });
