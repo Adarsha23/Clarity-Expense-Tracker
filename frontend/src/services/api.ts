@@ -3,7 +3,8 @@ import axios from 'axios';
 
 // Base API URL configuration
 // Uses environment variable in production, defaults to localhost in development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use current origin in production (relative path) to leverage Vercel rewrites
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
 
 // Create a configured Axios instance
 export const api = axios.create({
