@@ -15,9 +15,13 @@ const PORT = process.env.PORT || 3001;
 // --- MIDDLEWARE CONFIGURATION ---
 
 // CORS (Cross-Origin Resource Sharing)
-// Allows requests from the frontend development servers
+// Allows requests from the frontend development servers and production domains
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5175'],
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:5175',
+        /\.vercel\.app$/ // Allow all Vercel subdomains for this user
+    ],
     credentials: true, // Allow cookies/auth headers
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -60,9 +64,14 @@ app.use((err: Error, req: Request, res: Response, next: any) => {
     });
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
-});
+// Start the server only if not running in a serverless environment
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
+    });
+}
+
+// Export the app for Vercel Serverless Functions
+export default app;
