@@ -5,17 +5,19 @@ import { authenticateUser } from '../middleware/auth';
 
 const router = Router();
 
+// Apply authentication middleware to all category routes
 router.use(authenticateUser);
 
 /**
  * GET /api/categories
- * Fetch all categories (defaults + user created)
+ * Fetch all categories (system defaults + user specific)
  */
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.id;
 
-        // Fetch categories where user_id is null (system defaults) or matches current user
+        // Fetch categories where user_id is null (system defaults) OR matches current user
+        // This effectively implements "Row Level Security" logic in the application layer
         const { data, error } = await supabase
             .from('categories')
             .select('*')
@@ -31,7 +33,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 /**
  * POST /api/categories
- * Create a new custom category
+ * Create a new custom category for the authenticated user
  */
 router.post('/', async (req: AuthRequest, res: Response) => {
     try {
@@ -82,12 +84,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
 /**
  * DELETE /api/categories/:id
+ * Delete a custom category
  */
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const userId = req.user?.id;
 
+        // Perform delete only if the category belongs to the user
         const { error } = await supabase
             .from('categories')
             .delete()

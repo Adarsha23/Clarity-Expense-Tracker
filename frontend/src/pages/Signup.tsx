@@ -4,23 +4,31 @@ import { authService } from '../services/auth';
 import Button from '../components/common/Button';
 import '../styles/auth.css';
 
+// Signup Page Component
+// Handles new user registration
 const Signup: React.FC = () => {
+    // --- STATE MANAGEMENT ---
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Navigation hook
     const navigate = useNavigate();
 
+    // --- FORM SUBMISSION HANDLER ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
+        // Basic Validation: Check if passwords match
         if (password !== confirmPassword) {
             setError('Passwords do not match');
             return;
         }
 
+        // Basic Validation: Check password length
         if (password.length < 6) {
             setError('Password must be at least 6 characters');
             return;
@@ -29,17 +37,21 @@ const Signup: React.FC = () => {
         setLoading(true);
 
         try {
+            // Attempt to create a new account
             const data = await authService.signup(email, password);
 
+            // Check if email confirmation is required (Supabase specific)
             if (!data.session) {
                 setError('success:Sign up successful! Please check your email to verify your account.');
                 return;
             }
 
+            // If auto-logged in, store tokens and redirect
             localStorage.setItem('token', data.session.access_token);
             localStorage.setItem('user', JSON.stringify(data.user));
             navigate('/dashboard');
         } catch (err: any) {
+            // Display error message
             setError(err.response?.data?.error || err.message || 'Sign up failed');
         } finally {
             setLoading(false);
@@ -88,6 +100,7 @@ const Signup: React.FC = () => {
                         />
                     </div>
 
+                    {/* Conditional rendering for Success (Green) vs Error (Red) messages */}
                     {error && (
                         <div className={error.startsWith('success:') ? 'success-message' : 'error-message'}>
                             {error.replace('success:', '')}

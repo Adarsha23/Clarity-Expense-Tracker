@@ -4,28 +4,41 @@ import { authService } from '../services/auth';
 import Button from '../components/common/Button';
 import '../styles/auth.css';
 
+// Login Page Component
+// Handles user authentication via email and password
 const Login: React.FC = () => {
+    // --- STATE MANAGEMENT ---
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Navigation hook to redirect users after login
     const navigate = useNavigate();
 
+    // --- FORM SUBMISSION HANDLER ---
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevent default form refresh
         setError('');
         setLoading(true);
 
         try {
+            // Attempt to log in with provided credentials
             const data = await authService.login(email, password);
+
+            // Store auth token and user data in local storage
             localStorage.setItem('token', data.session.access_token);
             localStorage.setItem('user', JSON.stringify(data.user));
+
+            // Redirect to dashboard on success
             navigate('/dashboard');
         } catch (err: any) {
+            // Extract and display error message
             const errorMsg = err.response?.data?.error || err.message || 'Login failed';
             setError(errorMsg);
             console.error('Login error:', err.response?.data || err);
         } finally {
+            // Reset loading state regardless of outcome
             setLoading(false);
         }
     };
@@ -61,6 +74,7 @@ const Login: React.FC = () => {
                         />
                     </div>
 
+                    {/* Display error message if login fails */}
                     {error && <div className="error-message">{error}</div>}
 
                     <Button type="submit" fullWidth loading={loading}>

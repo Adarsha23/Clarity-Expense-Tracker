@@ -11,6 +11,8 @@ import Button from '../components/common/Button';
 import Sidebar from '../components/layout/Sidebar';
 import '../styles/dashboard.css';
 
+// Main Dashboard Component
+// Displays an overview of the user's finances, including summary cards, charts, and transaction management.
 export default function Dashboard() {
     const [user, setUser] = useState<any>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -35,6 +37,8 @@ export default function Dashboard() {
 
     const [viewDate, setViewDate] = useState(new Date());
 
+    // --- DATA LOADING & INITIALIZATION ---
+    // Fetch user data, transactions, and categories when the component mounts
     useEffect(() => {
         const userData = localStorage.getItem('user');
         if (userData) setUser(JSON.parse(userData));
@@ -42,6 +46,7 @@ export default function Dashboard() {
         fetchCategories();
     }, []);
 
+    // Helper to switch the currently viewed month (affects charts and "This Month" stats)
     const changeMonth = (delta: number) => {
         const newDate = new Date(viewDate);
         newDate.setMonth(newDate.getMonth() + delta);
@@ -108,7 +113,9 @@ export default function Dashboard() {
         }
     };
 
-    // --- Stats & Analytics Logic ---
+    // --- STATS & ANALYTICS CALCULATIONS ---
+    // These calculations are derived purely from the 'transactions' state and 'viewDate'.
+    // No extra API calls are needed for filtering.
     const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
     const DOUGHNUT_COLORS = ['#10b981', '#ef4444']; // Green, Red
 
@@ -116,6 +123,7 @@ export default function Dashboard() {
     const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
     const balance = totalIncome - totalExpense;
 
+    // Calculates Income, Expense, and Total for a specific month
     const getMonthStats = (date: Date) => {
         const m = date.getMonth();
         const y = date.getFullYear();
@@ -135,6 +143,7 @@ export default function Dashboard() {
     const currentMonthStats = getMonthStats(now);
     const lastMonthStats = getMonthStats(lastMonthDate);
 
+    // Pie Chart Data: Aggregates expenses by category for the selected 'viewDate' month
     // FIX: Use viewDate instead of now to allow chart to update when user toggles month
     const pieData = transactions
         .filter(t => {
@@ -149,6 +158,7 @@ export default function Dashboard() {
         }, [])
         .sort((a, b) => b.value - a.value);
 
+    // Savings Trend Data: Generates data for the last 6 months for the line chart
     const trendData = Array.from({ length: 6 }, (_, i) => {
         const d = new Date();
         d.setMonth(d.getMonth() - (5 - i));
@@ -159,6 +169,7 @@ export default function Dashboard() {
         };
     });
 
+    // Runway Calculation: How long the current balance lasts based on trailing 30-day spending
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const burnExpenses = transactions.filter(t => t.type === 'expense' && new Date(t.date) >= thirtyDaysAgo).reduce((s, t) => s + Number(t.amount), 0);
@@ -210,8 +221,8 @@ export default function Dashboard() {
                         <h3>Summary</h3>
                         <div className="summary-content">
                             <div className="summary-row">
-                                <span className="summary-label">Balance:</span>
-                                <span className="summary-value text-success">Rs {balance.toLocaleString()}</span>
+                                <span className="summary-label">Total Income:</span>
+                                <span className="summary-value text-success">Rs {totalIncome.toLocaleString()}</span>
                             </div>
                             <div className="summary-row">
                                 <span className="summary-label">Total Expense:</span>
@@ -219,7 +230,7 @@ export default function Dashboard() {
                             </div>
                             <div className="cat-divider"></div>
                             <div className="summary-row">
-                                <span className="summary-label text-bold">Net Total:</span>
+                                <span className="summary-label text-bold">Net Balance:</span>
                                 <span className="summary-value">Rs {balance.toLocaleString()}</span>
                             </div>
                         </div>

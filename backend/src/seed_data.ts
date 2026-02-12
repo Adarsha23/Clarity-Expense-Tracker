@@ -7,24 +7,29 @@ const categories = {
     expense: ['Food', 'Transport', 'Shopping', 'Entertainment', 'Rent', 'Utilities', 'Fitness', 'Groceries']
 };
 
+// Main function to populate the database with dummy data
 async function seed() {
     const transactions = [];
     const today = new Date();
 
+    // Loop through the last 4 months to generate data per month
     for (let i = 0; i < 4; i++) {
         const monthDate = new Date();
         monthDate.setMonth(today.getMonth() - i);
 
-        // Income
+        // --- INCOME GENERATION ---
+
+        // Add a fixed monthly salary entry
         transactions.push({
             user_id: USER_ID,
             type: 'income',
-            amount: 80000 + Math.floor(Math.random() * 5000),
+            amount: 80000 + Math.floor(Math.random() * 5000), // Random variance
             category: 'Salary',
             description: 'Monthly Salary',
             date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).toISOString().split('T')[0]
         });
 
+        // 30% chance to add freelance income
         if (Math.random() > 0.3) {
             transactions.push({
                 user_id: USER_ID,
@@ -36,16 +41,19 @@ async function seed() {
             });
         }
 
-        // Major Expenses
+        // --- EXPENSE GENERATION ---
+
+        // Add fixed rent expense
         transactions.push({
             user_id: USER_ID,
             type: 'expense',
             amount: 25000,
             category: 'Rent',
             description: 'Monthly Rent',
-            date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 5).toISOString().split('T')[0]
+            date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 5).toISOString().split('T')[0] // 5th of the month
         });
 
+        // Add utility bills
         transactions.push({
             user_id: USER_ID,
             type: 'expense',
@@ -55,7 +63,7 @@ async function seed() {
             date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 10).toISOString().split('T')[0]
         });
 
-        // Recurring smaller expenses
+        // Add multiple small recurring food expenses (5 times a month)
         for (let j = 0; j < 5; j++) {
             const day = Math.floor(Math.random() * 28) + 1;
             transactions.push({
@@ -68,6 +76,7 @@ async function seed() {
             });
         }
 
+        // Add weekly grocery runs (3 times a month)
         for (let j = 0; j < 3; j++) {
             const day = Math.floor(Math.random() * 28) + 1;
             transactions.push({
@@ -80,7 +89,7 @@ async function seed() {
             });
         }
 
-        // Random one-offs
+        // Add random one-off expenses (2 times a month)
         for (let k = 0; k < 2; k++) {
             const randomCat = categories.expense[Math.floor(Math.random() * categories.expense.length)];
             transactions.push({
@@ -96,6 +105,7 @@ async function seed() {
 
     console.log(`Seeding ${transactions.length} transactions...`);
 
+    // Batch insert all generated transactions into Supabase
     const { error } = await supabase.from('transactions').insert(transactions);
 
     if (error) {
